@@ -1,0 +1,4 @@
+*.jpeg
+__pycache__
+output
+data

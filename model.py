@@ -2,21 +2,30 @@ import tensorflow as tf
 
 import utils
 
-def build_enc0(x):
-    enc_conv1 = tf.nn.relu( utils.conv2d((5, 5, 3, 64), name='enc_conv1')(x) )
-    enc_pool1 = utils.maxpool2d(pool_size=[1, 2, 2, 1], name='enc_pool1')(enc_conv1)
-    enc_conv2 = tf.nn.relu( utils.conv2d((5, 5, 64, 128), name='enc_conv2')(enc_pool1) )
-    enc_pool2 = utils.maxpool2d(pool_size=[1, 2, 2, 1], name='enc_pool2')(enc_conv2)
-    # Output size of pool2 is (100, 32, 32, 128)
-    enc_pool2_flatten = tf.reshape(enc_pool2, [-1, 32*32*128])
+def build_enc0(x, preload_weights=[None]*8):
+    enc_conv1 = tf.nn.relu( utils.conv2d((5, 5, 3, 64), padding='VALID',
+                    weight_preset=preload_weights[0], bias_preset=preload_weights[1],
+                        name='enc_conv1')(x) )
+    enc_pool1 = utils.maxpool2d(pool_size=[1, 2, 2, 1], stride=[1, 2, 2, 1], name='enc_pool1')(enc_conv1)
 
-    enc_fc3 = tf.nn.relu( utils.dense(num_inputs=32*32*128, num_units=256, bias=True, name='enc_fc3')(enc_pool2_flatten) )
+    enc_conv2 = tf.nn.relu( utils.conv2d((5, 5, 64, 128), padding='VALID',
+                    weight_preset=preload_weights[2], bias_preset=preload_weights[3],
+                        name='enc_conv2')(enc_pool1) )
+    enc_pool2 = utils.maxpool2d(pool_size=[1, 2, 2, 1], stride=[1, 2, 2, 1], name='enc_pool2')(enc_conv2)
+
+    # Output size of pool2 is (100, 5, 5, 128)
+    enc_pool2_flatten = tf.reshape(enc_pool2, [-1, 5*5*128])
+
+    enc_fc3 = tf.nn.relu( utils.dense(num_inputs=32*32*128, num_units=256, bias=True,
+            weight_preset=preload_weights[4], bias_preset=preload_weights[5],
+                name='enc_fc3')(enc_pool2_flatten) )
 
     return enc_fc3
 
-def build_enc1(h1):
-    enc_fc4 = tf.nn.softmax( utils.dense(num_inputs=256, num_units=10, bias=True, name='enc_fc4') )
-
+def build_enc1(h1, preload_weights=[None]*8):
+    enc_fc4 = tf.nn.softmax( utils.dense(num_inputs=256, num_units=10, bias=True,
+                    weight_preset=preload_weights[6], bias_preset=preload_weights[7],
+                        name='enc_fc4')(h1) )
     return enc_fc4
 
 def build_gen1(y, z1):
@@ -87,4 +96,40 @@ def build_disc1(h1):
 
     return disc1_adv, disc1_z_recon
 
+def build_disc0(x, testing=False):
+    disc0_l1 = x + tf.random_normal(shape=tf.shape(x), stddev=0.05)
+    disc0_l1 = utils.lrelu(utils.conv2d((3, 3, 3, 96), name='disc0_conv1')(disc0_l1))
 
+    # 32 x 32 --> 16 x 16
+    disc0_l2 = tf.layers.batch_normalization(
+                    utils.lrelu(utils.conv2d((3, 3, 96, 96), stride=[1,2,2,1],
+                        name='disc0_conv2')(disc0_l1)))
+
+    disc0_l2 = tf.nn.dropout(disc0_l2, 0.1 if testing else 1)
+
+    # 16 x 16 --> 8x8
+    disc0_l3 = tf.layers.batch_normalization(
+                    utils.lrelu(utils.conv2d((3, 3, 96, 192), stride=[1,2,2,1],
+                        name='disc0_conv3')(disc0_l2)))
+
+    # 8x8 --> 8x8
+    disc0_l4 = tf.layers.batch_normalization(
+                    utils.lrelu(utils.conv2d((3, 3, 192, 192),
+                        name='disc0_conv4')(disc0_l3)))
+
+    disc0_l4 = tf.nn.dropout(disc0_l4, 0.1 if testing else 1)
+
+    # 8x8 --> 6x6
+    disc0_l5 = tf.layers.batch_normalization(
+                    utils.lrelu(utils.conv2d((3, 3, 192, 192), padding='VALID',
+                        name='disc0_conv5')(disc0_l4)))
+
+    disc0_l5 = tf.reshape(disc0_l5, [100, 6, 6, 192])
+    disc0_shared = utils.lrelu(utils.network_in_network(192, num_units=192, name='disc0_shared')(disc0_l5))
+    disc0_shared_flat = tf.reshape(disc0_shared, [-1, 192*6*6])
+    disc0_z_recon = utils.dense(num_inputs=192*6*6, num_units=16, name='disc0_z_recon')(disc0_shared_flat)
+    
+    disc0_shared_pool = tf.reduce_mean(disc0_shared, [1, 2])
+    disc0_adv = utils.dense(num_inputs=192, num_units=10, name='disc1_z_adv')(disc0_shared_pool)
+
+    return disc0_adv, disc0_z_recon

@@ -3,63 +3,71 @@ import os, sys, tarfile, shutil
 import tempfile, urllib
 
 #from tensorflow.contrib.layers import xavier_initializer
-default_initializer = lambda : tf.random_normal_initializer(0, 0.02)
+default_initializer = tf.random_normal_initializer(0, 0.02)
 
-def conv2d(filter_size, stride=[1, 1, 1, 1], padding='SAME', bias=True,
-            weight_init=default_initializer(), bias_init=tf.zeros_initializer,
+def conv2d(x, filter_size, stride=[1, 1, 1, 1], padding='SAME', bias=True,
+            weight_init=default_initializer, bias_init=tf.zeros_initializer,
             weight_preset=None, bias_preset=None, name=None):
-    filter_weights = weight_preset if weight_preset is not None else \
-              tf.get_variable(('%s_weights' % (name,)), filter_size, initializer=weight_init)
-    if bias:
-        filter_bias = bias_preset if bias_preset is not None else \
-                        tf.get_variable(('%s_bias' % (name,)), [filter_size[-1]], initializer=bias_init)
-        return lambda x: tf.nn.conv2d(x, filter_weights, stride, padding, name=name) + filter_bias
-    else:
-        return lambda x: tf.nn.conv2d(x, filter_weights, stride, padding, name=name)
+    with tf.variable_scope(name):
+        filter_weights = weight_preset if weight_preset is not None else \
+                  tf.get_variable('weights',filter_size, initializer=weight_init)
+        if bias:
+            filter_bias = bias_preset if bias_preset is not None else \
+                            tf.get_variable('bias', [filter_size[-1]], initializer=bias_init)
+            return tf.nn.conv2d(x, filter_weights, stride, padding) + filter_bias
+        else:
+            return tf.nn.conv2d(x, filter_weights, stride, padding) + filter_bias
 
-def conv2d_transpose(filter_size, output_shape, stride=[1, 1, 1, 1], padding='SAME', bias=True,
-        weight_init=default_initializer(), bias_init=tf.zeros_initializer, name=None):
-    filter_weights = tf.get_variable(('%s_weights' % (name,)), filter_size, initializer=weight_init)
-    if bias:
-        filter_bias = tf.get_variable(('%s_bias' % (name,)), [filter_size[-2]], initializer=bias_init)
-        return lambda x: tf.nn.conv2d_transpose(x, filter_weights, output_shape, stride, padding, name=name) + filter_bias
-    else:
-        return lambda x: tf.nn.conv2d_transpose(x, filter_weights, output_shape, stride, padding, name=name)
+def conv2d_transpose(x, filter_size, output_shape, stride=[1, 1, 1, 1], padding='SAME', bias=True,
+        weight_init=default_initializer, bias_init=tf.zeros_initializer, name=None):
+    with tf.variable_scope(name):
+        filter_weights = tf.get_variable('weights', filter_size, initializer=weight_init)
+        if bias:
+            filter_bias = tf.get_variable('bias', [filter_size[-2]], initializer=bias_init)
+            return tf.nn.conv2d_transpose(x, filter_weights, output_shape, stride, padding, name=name) + filter_bias
+        else:
+            return tf.nn.conv2d_transpose(x, filter_weights, output_shape, stride, padding, name=name)
 
-def maxpool2d(pool_size=[1, 1, 1, 1], stride=[1, 1, 1, 1], padding='SAME', name=None):
-    return lambda x: tf.nn.max_pool(x, pool_size, stride, padding, name=name) 
+def maxpool2d(x, pool_size=[1, 1, 1, 1], stride=[1, 1, 1, 1], padding='SAME', name=None):
+    return tf.nn.max_pool(x, pool_size, stride, padding, name=name) 
 
-def dense(num_inputs, num_units, bias=True,
-        weight_init=default_initializer(), bias_init=tf.zeros_initializer,
+def dense(x, num_inputs, num_units, bias=True,
+        weight_init=default_initializer, bias_init=tf.zeros_initializer,
         weight_preset=None, bias_preset=None,
         name=None):
 
-    weights = weight_preset if weight_preset is not None else \
-                tf.get_variable(('%s_weights' % (name,)),
-                    [num_inputs, num_units], initializer=weight_init)
-    if bias:
-        bias_weights = bias_preset if bias_preset is not None else \
-                tf.get_variable(('%s_bias' % (name,)), [num_units], initializer=weight_init)
+    with tf.variable_scope(name):
+        weights = weight_preset if weight_preset is not None else \
+                    tf.get_variable('weights',
+                        [num_inputs, num_units], initializer=weight_init)
+        if bias:
+            bias_weights = bias_preset if bias_preset is not None else \
+                    tf.get_variable('bias', [num_units], initializer=weight_init)
 
-        return lambda x: tf.matmul(x, weights) + bias_weights
-    else:
-        return lambda x: tf.matmul(x, weights)
+            return tf.matmul(x, weights) + bias_weights
+        else:
+            return tf.matmul(x, weights)
 
-def network_in_network(num_input_channels, num_units, bias=True,
-        weight_init=default_initializer(), bias_init=tf.zeros_initializer, name=None):
-    weights = tf.get_variable('%s_weights' % (name,), [num_input_channels, num_units], initializer=weight_init)
-    # Broadcast the network in network across the 2nd and third dimensions
-    # allows mixing across the different channels
-    if bias:
-        bias_weights = tf.get_variable('%s_bias' % (name,), [num_units], initializer=bias_init)
-        # Broadcast over everything but the channel dimension
-        # (i.e one set of weights that gets applied to each image and pixel and dotted along the filter dimension)
-        return lambda x: tf.transpose(tf.tensordot(weights, x, [[0], [3]]), [1, 2, 3, 0]) + bias_weights
-    else:
-        return lambda x: tf.transpose(tf.tensordot(weights, x, [[0], [3]]), [1, 2, 3, 0])
+def network_in_network(x, num_input_channels, num_units, bias=True,
+        weight_init=default_initializer, bias_init=tf.zeros_initializer, name=None):
+    with tf.variable_scope(name):
+        weights = tf.get_variable('weights', [num_input_channels, num_units], initializer=weight_init)
+        # Broadcast the network in network across the 2nd and third dimensions
+        # allows mixing across the different channels
+        if bias:
+            bias_weights = tf.get_variable('bias', [num_units], initializer=bias_init)
+            # Broadcast over everything but the channel dimension
+            # (i.e one set of weights that gets applied to each image and pixel and dotted along the filter dimension)
+            return tf.transpose(tf.tensordot(weights, x, [[0], [3]]), [1, 2, 3, 0]) + bias_weights
+        else:
+            return tf.transpose(tf.tensordot(weights, x, [[0], [3]]), [1, 2, 3, 0])
 
 def lrelu(x, alpha=0.2):
     return tf.maximum(alpha*x, x)
+
+def log_sum_exp(x, axis=1):
+    m = tf.reduce_max(x, axis=axis)
+    return m + tf.log(tf.reduce_sum(tf.exp(x - tf.expand_dims(m, axis=axis)), axis=axis))
 
 def logits_sigmoid_cross_entropy(logits, target):
     values = tf.cast(tf.fill(tf.stack([tf.shape(logits)[0], 1]), target), tf.float32)

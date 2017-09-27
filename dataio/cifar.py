@@ -57,7 +57,7 @@ def _file_pipeline(batch_size, files, preload=None, test=False):
 
 def _process_pipeline(batch_size, record_pipeline): 
     label = tf.cast(tf.strided_slice(record_pipeline, [0], [NUM_LABEL_BYTES]), tf.int32)
-    label = tf.reshape(tf.one_hot(label,10), [10])
+    label = tf.reshape(tf.one_hot(label,10, dtype=tf.int32), [10])
     depth_major = tf.reshape(tf.strided_slice(record_pipeline, [NUM_LABEL_BYTES],
                                 [NUM_LABEL_BYTES + NUM_IMAGE_BYTES]),
                                 [3, 32, 32])

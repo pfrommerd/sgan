@@ -66,7 +66,7 @@ with tf.variable_scope('enc1'):
 with tf.variable_scope('gen0') as scope:
     # Try generating fc3 --> x
     z0 = tf.random_uniform(shape=(args.batch_size, 16))
-    gen_x = model.build_gen0(enc0, z0, pre_gen_weights)
+    gen_x = model.build_gen0(enc0, z0, pre_gen_weights) - meanimg
 
 with tf.variable_scope('disc0') as scope:
     disc0_gen_adv, disc0_gen_z_recon = model.build_disc0(gen_x, True)

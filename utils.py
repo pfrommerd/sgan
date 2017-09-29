@@ -82,7 +82,7 @@ def lrelu(x, alpha=0.2):
     return tf.maximum(alpha*x, x)
 
 def bias(x, shape, bias_preset = None, bias_init=tf.zeros_initializer, name=None):
-    bias = tf.get_variable(name, shape, initializer=bias_init) if bias_preset is not None else \
+    bias = tf.get_variable(name, shape, initializer=bias_init) if bias_preset is None else \
             bias_preset
 
     return x + bias

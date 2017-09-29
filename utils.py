@@ -18,18 +18,34 @@ def conv2d(x, filter_size, stride=[1, 1, 1, 1], padding='SAME', bias=True,
         else:
             return tf.nn.conv2d(x, filter_weights, stride, padding) + filter_bias
 
-def conv2d_transpose(x, filter_size, output_shape, stride=[1, 1, 1, 1], padding='SAME', bias=True,
+def conv2d_transpose(x, filter_size, output_shape,
+        stride=[1, 1, 1, 1], padding='SAME', bias=True,
+        weight_preset=None, bias_preset=None,
         weight_init=default_initializer, bias_init=tf.zeros_initializer, name=None):
     with tf.variable_scope(name):
-        filter_weights = tf.get_variable('weights', filter_size, initializer=weight_init)
+        filter_weights = weight_preset if weight_preset is not None else \
+                tf.get_variable('weights', filter_size, initializer=weight_init)
         if bias:
-            filter_bias = tf.get_variable('bias', [filter_size[-2]], initializer=bias_init)
+            filter_bias = bias_preset if bias_preset is not None else \
+                    tf.get_variable('bias', [filter_size[-2]], initializer=bias_init)
             return tf.nn.conv2d_transpose(x, filter_weights, output_shape, stride, padding, name=name) + filter_bias
         else:
             return tf.nn.conv2d_transpose(x, filter_weights, output_shape, stride, padding, name=name)
 
 def maxpool2d(x, pool_size=[1, 1, 1, 1], stride=[1, 1, 1, 1], padding='SAME', name=None):
     return tf.nn.max_pool(x, pool_size, stride, padding, name=name) 
+
+def batch_normalization(x, reuse=None,
+        mean_preset=None, variance_preset=None, offset_preset=None, scale_preset=None,
+        name=None):
+    if mean_preset is not None or \
+        variance_preset is not None or \
+        offset_preset is not None or \
+        scale_preset is not None:
+        return tf.nn.batch_normalization(x, mean_preset, variance_preset,
+                    offset_preset, scale_preset, 0.000001, name=name)
+    else:
+        return tf.layers.batch_normalization(x, reuse=reuse, name=name)
 
 def dense(x, num_inputs, num_units, bias=True,
         weight_init=default_initializer, bias_init=tf.zeros_initializer,
@@ -64,6 +80,12 @@ def network_in_network(x, num_input_channels, num_units, bias=True,
 
 def lrelu(x, alpha=0.2):
     return tf.maximum(alpha*x, x)
+
+def bias(x, shape, bias_preset = None, bias_init=tf.zeros_initializer, name=None):
+    bias = tf.get_variable(name, shape, initializer=bias_init) if bias_preset is not None else \
+            bias_preset
+
+    return x + bias
 
 def log_sum_exp(x, axis=1):
     m = tf.reduce_max(x, axis=axis)

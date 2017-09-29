@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-#import numpy as np
+import numpy as np
 
 import itertools
 import utils
@@ -38,6 +38,7 @@ def _file_pipeline(batch_size, files, preload=None, test=False):
     # Load into a numpy array
 #    buf = np.concatenate([np.fromfile(f, dtype=np.uint8) for f in files])
 #    buf = np.reshape(buf, (-1, NUM_RECORD_BYTES))
+
     # Keep rows starting with a 0
     #buf = buf[buf[:,0] == 0, :]
 

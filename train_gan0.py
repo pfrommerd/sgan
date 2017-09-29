@@ -33,27 +33,45 @@ real_x, real_y = dataio.cifar.build_data_pipeline(args.data_dir, args.batch_size
 # Load the encoder weights
 pre_enc_weights = np.load('pretrained/encoder.npz')
 pre_enc_weights = [pre_enc_weights['arr_{}'.format(k)] for k in range(len(pre_enc_weights.files))]
+
 # Transpose the conv filters so that they are tensorflow-compatible
 pre_enc_weights[0] = np.transpose(pre_enc_weights[0], (2, 3, 1, 0))
 pre_enc_weights[2] = np.transpose(pre_enc_weights[2], (2, 3, 1, 0))
+
+# Load the generator weights for testing
+pre_gen_weights = np.load('pretrained/generator.npz')
+pre_gen_weights = [pre_gen_weights['arr_{}'.format(k)] for k in range(len(pre_gen_weights.files))]
+
+pre_gen_weights = pre_gen_weights[22:] # Get the ones for gen0
+
+# Transpose the deconv filters so that they are tensorflow-compatible
+pre_gen_weights[15] = np.transpose(pre_gen_weights[15], (2, 3, 1, 0))
+pre_gen_weights[20] = np.transpose(pre_gen_weights[20], (2, 3, 1, 0))
+pre_gen_weights[25] = np.transpose(pre_gen_weights[25], (2, 3, 1, 0))
+pre_gen_weights[30] = np.transpose(pre_gen_weights[30], (2, 3, 1, 0))
+
+#pre_gen_weights = 32 * [None] # If we don't want preloaded weights
+
+# Load the meanimg data
+meanimg = np.load('data/meanimg.npy').transpose([1, 2, 0])
 
 # ------------- Make the model ---------------
 
 with tf.variable_scope('enc0'):
     enc0 = model.build_enc0(real_x, pre_enc_weights) # x --> fc3 layer
+
 with tf.variable_scope('enc1'):
     enc1 = model.build_enc1(enc0, pre_enc_weights) # fc3 --> y
 
 with tf.variable_scope('gen0') as scope:
     # Try generating fc3 --> x
     z0 = tf.random_uniform(shape=(args.batch_size, 16))
-    gen_x = model.build_gen0(enc0, z0)
+    gen_x = model.build_gen0(enc0, z0, pre_gen_weights)
 
 with tf.variable_scope('disc0') as scope:
     disc0_gen_adv, disc0_gen_z_recon = model.build_disc0(gen_x, True)
     scope.reuse_variables()
     disc0_real_adv, disc0_real_z_recon = model.build_disc0(real_x, True, reuse=True)
-
 
 with tf.variable_scope('enc0_recon'):
     gen_enc0_recon = model.build_enc0(gen_x, pre_enc_weights)
@@ -79,10 +97,10 @@ disc0_params = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='disc0')
 gen0_params = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='gen0')
 
 disc0_optimizer = tf.train.AdamOptimizer(learning_rate=args.disc_lr,
-            beta1=0.5).minimize(loss_disc0, var_list=gen0_params)
+            beta1=0.5).minimize(loss_disc0, var_list=disc0_params)
 
 gen0_optimizer = tf.train.AdamOptimizer(learning_rate=args.gen_lr,
-            beta1=0.5).minimize(loss_gen0, var_list=gen0_params)
+            beta1=0.5).minimize(loss_gen0, var_list=disc0_params)
 
 # Tensorboard output summaries
 summary_loss_disc0 = tf.summary.scalar('loss_disc0', loss_disc0)
@@ -105,7 +123,8 @@ with tf.Session() as sess:
         print('Epoch %d/%d' % (epoch + 1, args.num_epoch)) 
         for i in range(args.steps_per_epoch):
             print('Batch %d/%d' % (i + 1, args.steps_per_epoch), end='\r')
-            _, _, summary = sess.run([disc0_optimizer, gen0_optimizer, summary_train])
+#            _, _, summary = sess.run([disc0_optimizer, gen0_optimizer, summary_train])
+            summary = sess.run(summary_train)
             iteration = epoch*args.steps_per_epoch + i
             writer.add_summary(summary, iteration)
         writer.flush()

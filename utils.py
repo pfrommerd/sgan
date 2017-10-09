@@ -42,10 +42,21 @@ def batch_normalization(x, reuse=None,
         variance_preset is not None or \
         offset_preset is not None or \
         scale_preset is not None:
-        return tf.nn.batch_normalization(x, mean_preset, variance_preset,
-                    offset_preset, scale_preset, 0.000001, name=name)
+        return (x - mean_preset) / tf.sqrt(1e-6 + variance_preset) * scale_preset
     else:
         return tf.layers.batch_normalization(x, reuse=reuse, name=name)
+
+#def batch_normalization(x, reuse=None,
+#        mean_preset=None, variance_preset=None, offset_preset=None, scale_preset=None,
+#        name=None):
+#    if mean_preset is not None or \
+#        variance_preset is not None or \
+#        offset_preset is not None or \
+#        scale_preset is not None:
+#        return tf.nn.batch_normalization(x, mean_preset, variance_preset,
+#                    offset_preset, scale_preset, 0.000001, name=name)
+#    else:
+#        return tf.layers.batch_normalization(x, reuse=reuse, name=name)
 
 def dense(x, num_inputs, num_units, bias=True,
         weight_init=default_initializer, bias_init=tf.zeros_initializer,

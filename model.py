@@ -73,7 +73,7 @@ def build_gen0(h1, z0, preload_weights=32*[None]):
 
     gen0_in = tf.concat([h1, gen0_z_embed2], axis=1)
 
-    gen0_in_reshaped = tf.reshape(
+    gen0_in_reshaped = tf.transpose(tf.reshape(
                     tf.nn.relu(utils.bias(
                         utils.batch_normalization(
                                 utils.dense(gen0_in, num_inputs=384, num_units=256*5*5, bias=False,
@@ -82,7 +82,7 @@ def build_gen0(h1, z0, preload_weights=32*[None]):
                                 scale_preset=preload_weights[12], mean_preset=preload_weights[13],
                                 variance_preset=preload_weights[14]),
                         # Bias:
-                        (256*5*5,), bias_preset=preload_weights[11], name='gen0_embed_bias')), [-1, 5, 5, 256])
+                        (256*5*5,), bias_preset=preload_weights[11], name='gen0_embed_bias')), [-1, 256, 5, 5]), [0, 2, 3, 1])
 
     gen0_deconv1 = tf.nn.relu(utils.bias(
                     utils.batch_normalization(

@@ -45,20 +45,23 @@ pre_gen_weights = [pre_gen_weights['arr_{}'.format(k)] for k in range(len(pre_ge
 pre_gen_weights = pre_gen_weights[22:] # Get the ones for gen0
 
 # Transpose the deconv filters so that they are tensorflow-compatible
-pre_gen_weights[15] = np.transpose(pre_gen_weights[15], (2, 3, 1, 0))
-pre_gen_weights[20] = np.transpose(pre_gen_weights[20], (2, 3, 1, 0))
-pre_gen_weights[25] = np.transpose(pre_gen_weights[25], (2, 3, 1, 0))
-pre_gen_weights[30] = np.transpose(pre_gen_weights[30], (2, 3, 1, 0))
+pre_gen_weights[15] = np.fliplr(np.flipud(np.transpose(pre_gen_weights[15], (2, 3, 1, 0))))
+pre_gen_weights[20] = np.fliplr(np.flipud(np.transpose(pre_gen_weights[20], (2, 3, 1, 0))))
+pre_gen_weights[25] = np.fliplr(np.flipud(np.transpose(pre_gen_weights[25], (2, 3, 1, 0))))
+pre_gen_weights[30] = np.fliplr(np.flipud(np.transpose(pre_gen_weights[30], (2, 3, 1, 0))))
 
 #pre_gen_weights = 32 * [None] # If we don't want preloaded weights
 
 # Load the meanimg data
 meanimg = np.load('data/meanimg.npy').transpose([1, 2, 0])
 
+#real_x = real_x - meanimg
+
 # ------------- Make the model ---------------
 
 with tf.variable_scope('enc0'):
     enc0 = model.build_enc0(real_x, pre_enc_weights) # x --> fc3 layer
+    enc0 = np.load('gen1_out.npy')
 
 with tf.variable_scope('enc1'):
     enc1 = model.build_enc1(enc0, pre_enc_weights) # fc3 --> y
@@ -66,6 +69,7 @@ with tf.variable_scope('enc1'):
 with tf.variable_scope('gen0') as scope:
     # Try generating fc3 --> x
     z0 = tf.random_uniform(shape=(args.batch_size, 16))
+    z0 = np.load('z0_out.npy')
     gen_x = model.build_gen0(enc0, z0, pre_gen_weights) - meanimg
 
 with tf.variable_scope('disc0') as scope:
@@ -106,8 +110,13 @@ gen0_optimizer = tf.train.AdamOptimizer(learning_rate=args.gen_lr,
 summary_loss_disc0 = tf.summary.scalar('loss_disc0', loss_disc0)
 summary_loss_gen0 = tf.summary.scalar('loss_gen0', loss_gen0)
 
-summary_real_img = tf.summary.image('real_x', real_x)
-summary_gen_img = tf.summary.image('gen_x', gen_x)
+real_x = tf.minimum(tf.maximum(real_x, 0.0001), 0.999999)
+#gen_x = tf.minimum(tf.maximum(gen_x, 0.0001), 0.999999)
+
+#summary_real_img = tf.summary.image('real_x', real_x, 32)
+summary_gen_img = tf.summary.image('gen_x', gen_x, 32)
+#summary_gen_img = tf.summary.image('gen_x', tf.cast(255 * gen_x, tf.uint8), max_outputs=32)
+summary_real_img = tf.summary.image('real_x', tf.cast(255 * real_x, tf.uint8), max_outputs=32)
 
 summary_train = tf.summary.merge([summary_loss_disc0, summary_loss_gen0, summary_real_img, summary_gen_img])
 
@@ -123,8 +132,8 @@ with tf.Session() as sess:
         print('Epoch %d/%d' % (epoch + 1, args.num_epoch)) 
         for i in range(args.steps_per_epoch):
             print('Batch %d/%d' % (i + 1, args.steps_per_epoch), end='\r')
-#            _, _, summary = sess.run([disc0_optimizer, gen0_optimizer, summary_train])
-            summary = sess.run(summary_train)
+            _, _, summary= sess.run([disc0_optimizer, gen0_optimizer, summary_train])
+#            summary = sess.run(summary_train)
             iteration = epoch*args.steps_per_epoch + i
             writer.add_summary(summary, iteration)
         writer.flush()

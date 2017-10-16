@@ -50,18 +50,18 @@ pre_gen_weights[20] = np.fliplr(np.flipud(np.transpose(pre_gen_weights[20], (2, 
 pre_gen_weights[25] = np.fliplr(np.flipud(np.transpose(pre_gen_weights[25], (2, 3, 1, 0))))
 pre_gen_weights[30] = np.fliplr(np.flipud(np.transpose(pre_gen_weights[30], (2, 3, 1, 0))))
 
-#pre_gen_weights = 32 * [None] # If we don't want preloaded weights
+pre_gen_weights = 32 * [None] # If we don't want preloaded weights
 
 # Load the meanimg data
 meanimg = np.load('data/meanimg.npy').transpose([1, 2, 0])
 
-#real_x = real_x - meanimg
+real_x = real_x - meanimg
 
 # ------------- Make the model ---------------
 
 with tf.variable_scope('enc0'):
     enc0 = model.build_enc0(real_x, pre_enc_weights) # x --> fc3 layer
-    enc0 = np.load('gen1_out.npy')
+#    enc0 = np.load('gen1_out.npy')
 
 with tf.variable_scope('enc1'):
     enc1 = model.build_enc1(enc0, pre_enc_weights) # fc3 --> y
@@ -69,7 +69,7 @@ with tf.variable_scope('enc1'):
 with tf.variable_scope('gen0') as scope:
     # Try generating fc3 --> x
     z0 = tf.random_uniform(shape=(args.batch_size, 16))
-    z0 = np.load('z0_out.npy')
+#    z0 = np.load('z0_out.npy')
     gen_x = model.build_gen0(enc0, z0, pre_gen_weights) - meanimg
 
 with tf.variable_scope('disc0') as scope:
@@ -104,7 +104,7 @@ disc0_optimizer = tf.train.AdamOptimizer(learning_rate=args.disc_lr,
             beta1=0.5).minimize(loss_disc0, var_list=disc0_params)
 
 gen0_optimizer = tf.train.AdamOptimizer(learning_rate=args.gen_lr,
-            beta1=0.5).minimize(loss_gen0, var_list=disc0_params)
+            beta1=0.5).minimize(loss_gen0, var_list=gen0_params)
 
 # Tensorboard output summaries
 summary_loss_disc0 = tf.summary.scalar('loss_disc0', loss_disc0)

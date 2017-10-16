@@ -114,9 +114,9 @@ def build_gen0(h1, z0, preload_weights=32*[None]):
                     # Bias:
                     (128,), bias_preset=preload_weights[26], name='gen0_deconv3_bias'))
 
-    gen0_deconv4 = utils.conv2d_transpose(gen0_deconv3, (5, 5, 3, 128), (100, 32, 32, 3),
-                            weight_preset=preload_weights[30], bias_preset=preload_weights[31],
-                            padding='VALID', name='gen0_deconv4')
+    gen0_deconv4 = tf.sigmoid(utils.conv2d_transpose(gen0_deconv3, (5, 5, 3, 128), (100, 32, 32, 3),
+                                weight_preset=preload_weights[30], bias_preset=preload_weights[31],
+                                padding='VALID', name='gen0_deconv4'))
     return gen0_deconv4
 
 def build_disc1(h1, testing=False, reuse=False):

@@ -13,7 +13,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--out_dir', type=str, default='logs/sgan_joint')
 parser.add_argument('--data_dir', type=str, default='data/cifar-10-bin')
 parser.add_argument('--save_interval', type = int, default = 1)
-parser.add_argument('--num_epoch', type = int, default = 200)
+parser.add_argument('--num_epoch', type = int, default = 500)
 parser.add_argument('--steps_per_epoch', type = int, default = 500)
 parser.add_argument('--seed', type=int, default=1)
 parser.add_argument('--seed_data', type=int, default=1)
@@ -132,10 +132,12 @@ with tf.Session() as sess:
         print('Epoch %d/%d' % (epoch + 1, args.num_epoch)) 
         for i in range(args.steps_per_epoch):
             print('Batch %d/%d' % (i + 1, args.steps_per_epoch), end='\r')
-            _, _, summary= sess.run([disc0_optimizer, gen0_optimizer, summary_train])
-#            summary = sess.run(summary_train)
-            iteration = epoch*args.steps_per_epoch + i
-            writer.add_summary(summary, iteration)
-        writer.flush()
+            if i % 50 == 0:
+                _, _, summary= sess.run([disc0_optimizer, gen0_optimizer, summary_train])
+                iteration = epoch*args.steps_per_epoch + i
+                writer.add_summary(summary, iteration)
+                writer.flush()
+            else:
+                _, _ = sess.run([disc0_optimizer, gen0_optimizer])
         print()
 

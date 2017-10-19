@@ -13,6 +13,9 @@ def build_enc0(x, preload_weights=[None]*8):
                         name='enc_conv2'))
     enc_pool2 = utils.maxpool2d(enc_conv2, pool_size=[1, 2, 2, 1], stride=[1, 2, 2, 1], name='enc_pool2')
 
+    # We need to transpose first to get to [100, 128, 5, 5]
+    enc_pool2 = tf.transpose(enc_pool2, [0, 2, 3, 1])
+
     # Output size of pool2 is (100, 5, 5, 128)
     enc_pool2_flatten = tf.reshape(enc_pool2, [-1, 5*5*128])
 

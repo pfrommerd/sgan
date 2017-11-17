@@ -28,14 +28,14 @@ def build_gen1(y, z1):
     gen1_l1 = tf.transpose(tf.reshape(
                 tf.nn.relu(utils.bias(
                     utils.batch_normalization(
-                        utils.dense(gen1_in, num_inputs=768, num_units=512, bias=False,
+                        utils.dense(gen1_in, num_inputs=768, num_units=1024, bias=False,
                             name='gen1_l1')),
-                    (512,), name='gen1_l1_bias')),
-                (-1, 32, 4, 4)), [0, 2, 3, 1])
+                    (1024,), name='gen1_l1_bias')),
+                (-1, 64, 4, 4)), [0, 2, 3, 1])
 
     gen1_l2 = tf.nn.relu(utils.bias(
                     utils.batch_normalization(
-                        utils.conv2d_transpose(gen1_l1, (4, 4, 64, 32), (100, 11, 11, 64), bias=False,
+                        utils.conv2d_transpose(gen1_l1, (4, 4, 64, 64), (100, 11, 11, 64), bias=False,
                             padding='VALID', stride=(1, 2, 2, 1), name='gen1_l3')),
                         (64,), name='gen1_l3_bias'))
 
@@ -131,51 +131,34 @@ def build_gen0(h1, z0, preload_weights=32*[None]):
 def build_disc1(h1, testing=False, reuse=False):
     # 16 x 16 --> 8x8
     disc1_conv1 = utils.batch_normalization(
-                    utils.lrelu(utils.conv2d(h1, (3, 3, 64, 3), stride=[1,2,2,1],
+                    utils.lrelu(utils.conv2d(h1, (3, 3, 3, 32), stride=[1,2,2,1],
                         name='disc1_conv1')), name='disc1_bn1', reuse=reuse)
 
     disc1_conv2= utils.batch_normalization(
-                    utils.lrelu(utils.conv2d(disc1_conv1, (3, 3, 96, 64), stride=[1,2,2,1],
+                    utils.lrelu(utils.conv2d(disc1_conv1, (3, 3, 32, 64),
                         name='disc1_conv2')), name='disc1_bn2', reuse=reuse)
 
     # 8x8 --> 8x8
     disc1_conv3 = utils.batch_normalization(
-                    utils.lrelu(utils.conv2d(disc0_l3, (3, 3, 96, 96),
+                    utils.lrelu(utils.conv2d(disc1_conv2, (3, 3, 64, 64),
                         name='disc1_conv3')), name='disc1_bn3', reuse=reuse)
 
     disc1_conv3 = tf.nn.dropout(disc1_conv3, 0.1 if testing else 1)
 
     # 8x8 --> 6x6
-    disc0_l5 = tf.layers.batch_normalization(
-                    utils.lrelu(utils.conv2d(disc0_l4, (3, 3, 192, 192), padding='VALID',
-                        name='disc0_conv5')), name='bn4', reuse=reuse)
+    disc1_conv4 = tf.layers.batch_normalization(
+                    utils.lrelu(utils.conv2d(disc1_conv3, (3, 3, 64, 64), padding='VALID',
+                        name='disc1_conv4')), name='bn4', reuse=reuse)
 
-    disc0_l5 = tf.reshape(disc0_l5, [100, 6, 6, 192])
-    disc0_shared = utils.lrelu(utils.network_in_network(disc0_l5, 192, num_units=192, name='disc0_shared'))
-    disc0_shared_flat = tf.reshape(disc0_shared, [-1, 192*6*6])
-    disc0_z_recon = utils.dense(disc0_shared_flat, num_inputs=192*6*6, num_units=16, name='disc0_z_recon')
+    disc1_l5 = tf.reshape(disc1_conv4, [100, 6, 6, 64])
+
+    disc1_shared = utils.lrelu(utils.network_in_network(disc1_l5, 64, num_units=64, name='disc1_shared'))
+    disc1_shared_flat = tf.reshape(disc1_shared, [-1, 64*6*6])
+    disc1_z_recon = utils.dense(disc1_shared_flat, num_inputs=64*6*6, num_units=50, name='disc1_z_recon')
     
-    disc0_shared_pool = tf.reduce_mean(disc0_shared, [1, 2])
-    disc0_adv = utils.dense(disc0_shared_pool, num_inputs=192, num_units=10, name='disc1_z_adv')
-    # disc0_adv is the pre-softmax classification output for the discriminator
-
-    return disc0_adv, disc0_z_recon
-    h1_flatten = tf.reshape(h1, (-1,16*16*3))
-
-    disc1_l1 = h1_flatten + tf.random_normal(shape=tf.shape(h1_flatten), stddev=0.05)
-    disc1_l1 = utils.lrelu(utils.dense(disc1_l1, num_inputs=16*16*3, num_units=512, name='disc1_l1', bias=True))
-    disc1_l1 = disc1_l1 + tf.random_normal(shape=tf.shape(disc1_l1), stddev=0.1)
-
-    disc1_l2 = utils.lrelu(utils.bias(utils.batch_normalization(
-                    utils.dense(disc1_l1, num_inputs=512, num_units=512, name='disc1_l2', bias=False), name='bn1', reuse=reuse),
-                    (512,), name='disc1_l2_bias'))
-
-    disc1_l2 = disc1_l2 + tf.random_normal(shape=tf.shape(disc1_l2), stddev=0.2)
-
-    # Now reconstruct the noise
-    disc1_z_recon = utils.dense(disc1_l2, num_inputs=512, num_units=50, name='disc1_z_recon')
-
-    disc1_adv = utils.dense(disc1_l2, num_inputs=512, num_units=10, name='disc1_z_adv')
+    disc1_shared_pool = tf.reduce_mean(disc1_shared, [1, 2])
+    disc1_adv = utils.dense(disc1_shared_pool, num_inputs=64, num_units=1, name='disc1_z_adv')
+    # disc1_adv is the pre-sigmoid output of the discriminator
 
     return disc1_adv, disc1_z_recon
 

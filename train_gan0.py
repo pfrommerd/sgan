@@ -11,6 +11,7 @@ import os
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--out_dir', type=str, default='logs/sgan_gen0')
+parser.add_argument('--ckpt_dir', type=str, default='checkpoint/sgan_gen0')
 parser.add_argument('--data_dir', type=str, default='data/cifar-10-bin')
 parser.add_argument('--save_interval', type = int, default = 1)
 parser.add_argument('--num_epoch', type = int, default = 1000)
@@ -98,6 +99,8 @@ summary_train = tf.summary.merge([summary_loss_disc0, summary_loss_gen0, summary
 writer = tf.summary.FileWriter(args.out_dir, graph=tf.get_default_graph())
 writer.flush()
 
+saver = tf.train.Saver()
+
 with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
     coord = tf.train.Coordinator()
@@ -114,5 +117,6 @@ with tf.Session() as sess:
                 writer.flush()
             else:
                 _, _ = sess.run([disc0_optimizer, gen0_optimizer])
+        if epoch % 10 == 0:
+            saver.save(sess, '%s/ckpt_%d.ckpt' % (args.ckpt_dir, epoch))
         print()
-
